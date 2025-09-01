@@ -2,11 +2,10 @@ import numpy as np
 import pandas as pd
 from pymoo.core.problem import Problem
 from pymoo.algorithms.moo.nsga2 import NSGA2
-from pymoo.operators.sampling.rnd import MixedVariableSampling
 from pymoo.operators.crossover.sbx import SBX
 from pymoo.operators.mutation.pm import PM
-from pymoo.operators.crossover.pntx import TwoPointCrossover
-from pymoo.operators.mutation.bitflip import BitflipMutation
+from pymoo.operators.sampling.rnd import FloatRandomSampling
+from pymoo.operators.repair.rounding import RoundingRepair
 from pymoo.optimize import minimize
 import time
 
@@ -40,12 +39,19 @@ class MagneticComponentOptimization(Problem):
         评估函数，pymoo会批量调用此函数。
         x 是一个 (n_individuals, n_vars) 的二维数组。
         """
+        # 对整数变量进行四舍五入处理
+        x_rounded = x.copy()
+        x_rounded[:, 2] = np.round(x_rounded[:, 2])  # Material_Code
+        x_rounded[:, 3] = np.round(x_rounded[:, 3])  # Waveform_Code
+
+        # 确保整数变量在边界内
+        x_rounded[:, 2] = np.clip(x_rounded[:, 2], 0, 3)
+        x_rounded[:, 3] = np.clip(x_rounded[:, 3], 0, 2)
+
         # 为这批个体计算目标函数值
-        # 我们使用列表推导式来为x中的每个个体（每一行）调用评估函数
-        results = [evaluate_objectives(individual) for individual in x]
+        results = [evaluate_objectives(individual) for individual in x_rounded]
 
         # 将结果列表转换为NumPy数组
-        # out["F"] 需要一个 (n_individuals, n_objectives) 的数组
         out["F"] = np.array(results)
 
 
@@ -56,28 +62,23 @@ if __name__ == '__main__':
     # 实例化我们定义的问题
     problem = MagneticComponentOptimization()
 
-    # 定义变量类型掩码：'real'代表连续变量，'int'代表整数变量
-    mask = ['real', 'real', 'int', 'int', 'real']
-
     # 配置NSGA-II算法
     algorithm = NSGA2(
         pop_size=100,  # 种群大小
-        sampling=MixedVariableSampling(mask, {
-            "real": np.random.random,
-            "int": (lambda low, high: np.random.randint(low, high + 1))
-        }),
-        crossover=SBX(prob=0.9, eta=15, vtype=float),  # 模拟二进制交叉用于连续变量
-        mutation=PM(eta=20, vtype=float),  # 多项式变异用于连续变量
+        sampling=FloatRandomSampling(),  # 使用浮点数随机采样
+        crossover=SBX(prob=0.9, eta=15),  # 模拟二进制交叉
+        mutation=PM(eta=20),  # 多项式变异
         eliminate_duplicates=True
     )
 
     # 设置终止条件
     from pymoo.termination import get_termination
 
-    termination = get_termination("n_gen", 200)  # 迭代200代
+    n_generations = 200  # 设置迭代代数
+    termination = get_termination("n_gen", n_generations)
 
     print("\n--- 开始执行NSGA-II优化 ---")
-    print(f"种群大小: {algorithm.pop_size}, 迭代代数: {termination.n_gen}")
+    print(f"种群大小: {algorithm.pop_size}, 迭代代数: {n_generations}")
     start_time = time.time()
 
     # 执行优化
