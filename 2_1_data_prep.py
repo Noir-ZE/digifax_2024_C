@@ -23,7 +23,7 @@ def prepare_data_for_q2(input_csv_path: str) -> pd.DataFrame:
 
     # 1. 筛选数据
     print("正在筛选材料1在正弦波激励下的数据...")
-    df_filtered = df[(df['Material'] == 1) & (df['Waveform_Type'] == '正弦波')].copy()
+    df_filtered = df[(df['Material'] == 1) & (df['Waveform_Type'] == 'sin')].copy()
 
     if df_filtered.empty:
         print("警告: 未找到符合条件（材料1，正弦波）的数据。")
